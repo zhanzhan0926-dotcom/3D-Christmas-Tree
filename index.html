@@ -91,21 +91,19 @@
     <video id="video" autoplay playsinline muted></video>
     
     <div id="info">
-        <h2>🎄 手势控制说明</h2>
-        <p>👆 伸出食指靠近屏幕</p>
-        <p>🌊 移动手指推动粒子</p>
-        <p>✨ 观察装饰物动画</p>
+        <h2> 手势控制说明</h2>
+        <p> 伸出食指靠近屏幕</p>
+        <p> 移动手指推动粒子</p>
+        <p> 观察装饰物动画</p>
         <p id="status">正在启动摄像头...</p>
     </div>
     
     <div class="loading" id="loading">加载中</div>
-    
-    <!-- 引入 Three.js -->
-    <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
-    
-    <!-- 引入 MediaPipe Hands -->
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/hands.min.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1620248357/camera_utils.min.js" crossorigin="anonymous"></script>
+
+    <!-- 使用 unpkg 作为备用 CDN -->
+<script src="https://unpkg.com/three@0.158.0/build/three.min.js"></script>
+<script src="https://unpkg.com/@mediapipe/hands@0.4.1646424915/hands.min.js"></script>
+<script src="https://unpkg.com/@mediapipe/camera_utils@0.3.1620248357/camera_utils.min.js"></script>
     
     <script>
     // ==================== 场景初始化 ====================
