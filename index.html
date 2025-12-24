@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D 粒子圣诞树 - 分层加强版</title>
+    <title>3D 粒子圣诞树 - 鼠标交互版</title>
     <style>
         * {
             margin: 0;
@@ -22,19 +22,7 @@
             width: 100vw;
             height: 100vh;
             position: relative;
-        }
-        
-        #video {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            width: 200px;
-            height: 150px;
-            border: 3px solid rgba(255, 255, 255, 0.3);
-            border-radius: 15px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-            object-fit: cover;
-            z-index: 1000;
+            cursor: none; /* 隐藏鼠标，显示自定义指示器 */
         }
         
         #info {
@@ -42,25 +30,40 @@
             top: 20px;
             left: 20px;
             padding: 20px;
-            background: rgba(0, 0, 0, 0.7);
+            background: rgba(0, 0, 0, 0.8);
             color: white;
-            border-radius: 10px;
+            border-radius: 15px;
             font-size: 14px;
             z-index: 1000;
             backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            max-width: 300px;
+            border: 2px solid rgba(255, 215, 0, 0.3);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            max-width: 280px;
         }
         
         #info h2 {
-            margin-bottom: 10px;
+            margin-bottom: 12px;
             color: #ffcc00;
-            font-size: 18px;
+            font-size: 20px;
+            text-shadow: 0 0 10px rgba(255, 204, 0, 0.5);
         }
         
         #info p {
-            margin: 5px 0;
-            line-height: 1.5;
+            margin: 8px 0;
+            line-height: 1.6;
+        }
+        
+        #stats {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.7);
+            color: #4fc3f7;
+            border-radius: 10px;
+            font-size: 12px;
+            z-index: 1000;
+            font-family: 'Courier New', monospace;
         }
         
         .loading {
@@ -69,9 +72,10 @@
             left: 50%;
             transform: translate(-50%, -50%);
             color: white;
-            font-size: 24px;
+            font-size: 28px;
             z-index: 999;
             text-align: center;
+            font-weight: bold;
         }
         
         .loading::after {
@@ -84,28 +88,54 @@
             40% { content: '..'; }
             60%, 100% { content: '...'; }
         }
+        
+        #customCursor {
+            position: fixed;
+            width: 30px;
+            height: 30px;
+            border: 2px solid #ff00ff;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 10000;
+            box-shadow: 0 0 20px #ff00ff;
+            transition: transform 0.1s ease;
+        }
     </style>
 </head>
 <body>
     <div id="container"></div>
-    <video id="video" autoplay playsinline muted></video>
+    
+    <div id="customCursor"></div>
     
     <div id="info">
-        <h2> 手势控制说明</h2>
-        <p> 伸出食指靠近屏幕</p>
-        <p> 移动手指推动粒子</p>
-        <p> 观察装饰物动画</p>
-        <p id="status">正在启动摄像头...</p>
+        <h2>🎄 圣诞树交互</h2>
+        <p>🖱️ <strong>移动鼠标</strong> 推动粒子</p>
+        <p>✨ 观察装饰物动画</p>
+        <p>🌈 欣赏彩色灯光效果</p>
+        <p id="status" style="color: #4fc3f7; margin-top: 10px;">✅ 就绪</p>
+    </div>
+    
+    <div id="stats">
+        FPS: <span id="fps">60</span><br>
+        粒子数: <span id="particles">3500</span><br>
+        装饰物: <span id="decorations">37</span>
     </div>
     
     <div class="loading" id="loading">加载中</div>
-
-    <!-- 使用 unpkg 作为备用 CDN -->
-<script src="https://unpkg.com/three@0.158.0/build/three.min.js"></script>
-<script src="https://unpkg.com/@mediapipe/hands@0.4.1646424915/hands.min.js"></script>
-<script src="https://unpkg.com/@mediapipe/camera_utils@0.3.1620248357/camera_utils.min.js"></script>
+    
+    <!-- 只需要 Three.js，无需 MediaPipe -->
+    <script src="https://unpkg.com/three@0.158.0/build/three.min.js"></script>
     
     <script>
+    // ==================== 检查 Three.js 加载 ====================
+    if (typeof THREE === 'undefined') {
+        document.getElementById('loading').innerHTML = 
+            '❌ Three.js 加载失败<br><small style="font-size:16px;">请检查网络连接</small>';
+        throw new Error('Three.js 加载失败');
+    }
+    
+    console.log('✅ Three.js 加载成功');
+    
     // ==================== 场景初始化 ====================
     const scene = new THREE.Scene();
     scene.fog = new THREE.Fog(0x0a0e27, 10, 50);
@@ -137,11 +167,9 @@
     const mainLight = new THREE.DirectionalLight(0xffffff, 0.8);
     mainLight.position.set(5, 15, 10);
     mainLight.castShadow = true;
-    mainLight.shadow.mapSize.width = 2048;
-    mainLight.shadow.mapSize.height = 2048;
     scene.add(mainLight);
 
-    // 彩色聚光灯（营造节日氛围）
+    // 彩色聚光灯
     const spotLightColors = [
         { color: 0xff0000, pos: [8, 5, 0] },
         { color: 0x00ff00, pos: [-8, 5, 0] },
@@ -162,19 +190,12 @@
     const particleCount = 3500;
 
     function createEnhancedTree() {
-        // 定义树的分层结构（更真实的圣诞树形状）
         const treeLayers = [
-            // 树干
             { yStart: 0, yEnd: 1.5, radiusTop: 0.4, radiusBottom: 0.5, color: 0x8B4513, density: 200 },
-            // 底层（最宽）
             { yStart: 1.5, yEnd: 3.5, radiusTop: 2.5, radiusBottom: 3.2, color: 0x0d4d0d, density: 800 },
-            // 中底层
             { yStart: 3.5, yEnd: 5.0, radiusTop: 2.0, radiusBottom: 2.5, color: 0x0f5f0f, density: 600 },
-            // 中层
             { yStart: 5.0, yEnd: 6.5, radiusTop: 1.5, radiusBottom: 2.0, color: 0x1a7a1a, density: 500 },
-            // 中上层
             { yStart: 6.5, yEnd: 8.0, radiusTop: 1.0, radiusBottom: 1.5, color: 0x228b22, density: 400 },
-            // 顶层
             { yStart: 8.0, yEnd: 9.5, radiusTop: 0.3, radiusBottom: 1.0, color: 0x2d962d, density: 300 }
         ];
 
@@ -187,12 +208,10 @@
             const layerHeight = layer.yEnd - layer.yStart;
             
             for (let i = 0; i < layer.density; i++) {
-                // 在层内随机分布
                 const t = Math.random();
                 const y = layer.yStart + t * layerHeight;
                 const radius = layer.radiusBottom + (layer.radiusTop - layer.radiusBottom) * t;
                 
-                // 添加一些随机性，让树更自然
                 const angle = Math.random() * Math.PI * 2;
                 const r = Math.random() * radius;
                 const x = Math.cos(angle) * r;
@@ -200,12 +219,10 @@
                 
                 positions.push(x, y, z);
                 
-                // 颜色渐变
                 const color = new THREE.Color(layer.color);
                 color.offsetHSL(0, 0, (Math.random() - 0.5) * 0.1);
                 colors.push(color.r, color.g, color.b);
                 
-                // 粒子大小变化
                 sizes.push(0.08 + Math.random() * 0.05);
                 
                 treeParticles.push({
@@ -238,7 +255,6 @@
     // ==================== 装饰物系统 ====================
     const decorations = [];
 
-    // 创建彩球
     function createOrnament(position, color, size = 0.25) {
         const geometry = new THREE.SphereGeometry(size, 16, 16);
         const material = new THREE.MeshStandardMaterial({
@@ -256,7 +272,6 @@
         return ornament;
     }
 
-    // 创建五角星
     function createStar(position, size = 0.5) {
         const shape = new THREE.Shape();
         for (let i = 0; i < 10; i++) {
@@ -283,7 +298,6 @@
         star.castShadow = true;
         scene.add(star);
         
-        // 添加发光效果
         const pointLight = new THREE.PointLight(0xffff00, 2, 5);
         pointLight.position.copy(position);
         scene.add(pointLight);
@@ -292,7 +306,6 @@
         return star;
     }
 
-    // 创建铃铛
     function createBell(position) {
         const group = new THREE.Group();
         
@@ -320,7 +333,6 @@
         return group;
     }
 
-    // 创建蝴蝶结
     function createBow(position) {
         const group = new THREE.Group();
         const material = new THREE.MeshStandardMaterial({
@@ -329,7 +341,6 @@
             roughness: 0.8
         });
 
-        // 左右蝴蝶结翼
         const wingGeo = new THREE.TorusGeometry(0.18, 0.07, 12, 24, Math.PI);
         
         const leftWing = new THREE.Mesh(wingGeo, material);
@@ -342,11 +353,9 @@
         rightWing.rotation.z = Math.PI / 6;
         rightWing.position.set(0.12, 0, 0);
         
-        // 中心结
         const centerGeo = new THREE.SphereGeometry(0.08, 16, 16);
         const center = new THREE.Mesh(centerGeo, material);
         
-        // 丝带
         const ribbonGeo = new THREE.BoxGeometry(0.04, 0.3, 0.04);
         const ribbon1 = new THREE.Mesh(ribbonGeo, material);
         ribbon1.position.y = -0.15;
@@ -363,13 +372,9 @@
         return group;
     }
 
-    // 添加所有装饰物
     function addAllDecorations() {
-        // 顶部大星星
-        const topStar = createStar(new THREE.Vector3(0, 10, 0), 0.6);
-        decorations.push(topStar);
+        decorations.push(createStar(new THREE.Vector3(0, 10, 0), 0.6));
 
-        // 彩球分布
         const ballColors = [0xff0000, 0x0000ff, 0xffd700, 0xff69b4, 0x00ff00, 0xff8c00];
         for (let i = 0; i < 18; i++) {
             const layer = 2.5 + Math.random() * 6;
@@ -386,7 +391,6 @@
             decorations.push(createOrnament(pos, color, 0.2 + Math.random() * 0.15));
         }
 
-        // 铃铛
         for (let i = 0; i < 8; i++) {
             const layer = 3 + Math.random() * 5;
             const maxRadius = (10 - layer) / 3.5;
@@ -401,7 +405,6 @@
             decorations.push(createBell(pos));
         }
 
-        // 蝴蝶结
         for (let i = 0; i < 10; i++) {
             const layer = 2.5 + Math.random() * 6;
             const maxRadius = (10 - layer) / 3.5;
@@ -415,13 +418,15 @@
             );
             decorations.push(createBow(pos));
         }
+        
+        document.getElementById('decorations').textContent = decorations.length;
     }
 
     addAllDecorations();
 
-    // ==================== 手势识别 ====================
-    let handPosition = new THREE.Vector3(0, 5, 5);
-    let isHandDetected = false;
+    // ==================== 鼠标交互 ====================
+    let mousePosition = new THREE.Vector3(0, 5, 5);
+    let isMouseMoving = false;
 
     const handIndicator = new THREE.Mesh(
         new THREE.SphereGeometry(0.3, 32, 32),
@@ -432,60 +437,30 @@
             blending: THREE.AdditiveBlending
         })
     );
-    handIndicator.visible = false;
     scene.add(handIndicator);
 
-    // MediaPipe Hands 初始化
-    const hands = new Hands({
-        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/${file}`
+    // 鼠标控制
+    const customCursor = document.getElementById('customCursor');
+    document.addEventListener('mousemove', (e) => {
+        // 更新自定义鼠标位置
+        customCursor.style.left = e.clientX - 15 + 'px';
+        customCursor.style.top = e.clientY - 15 + 'px';
+        customCursor.style.transform = 'scale(1.2)';
+        
+        // 映射到3D空间
+        const x = (e.clientX / window.innerWidth) * 2 - 1;
+        const y = -(e.clientY / window.innerHeight) * 2 + 1;
+        
+        mousePosition.set(x * 12, y * 10 + 5, 5);
+        isMouseMoving = true;
+        
+        setTimeout(() => {
+            customCursor.style.transform = 'scale(1)';
+        }, 100);
     });
 
-    hands.setOptions({
-        maxNumHands: 1,
-        modelComplexity: 1,
-        minDetectionConfidence: 0.7,
-        minTrackingConfidence: 0.5
-    });
-
-    hands.onResults(onHandResults);
-
-    function onHandResults(results) {
-        if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-            const landmarks = results.multiHandLandmarks[0];
-            const indexTip = landmarks[8];
-            
-            handPosition.set(
-                (0.5 - indexTip.x) * 25,
-                (1 - indexTip.y) * 18 - 2,
-                5
-            );
-            
-            isHandDetected = true;
-            handIndicator.visible = true;
-            document.getElementById('status').textContent = ' 手势已识别';
-        } else {
-            isHandDetected = false;
-            handIndicator.visible = false;
-            document.getElementById('status').textContent = ' 等待手势...';
-        }
-    }
-
-    // 启动摄像头
-    const videoElement = document.getElementById('video');
-    const camera_util = new Camera(videoElement, {
-        onFrame: async () => {
-            await hands.send({ image: videoElement });
-        },
-        width: 640,
-        height: 480
-    });
-
-    camera_util.start().then(() => {
-        document.getElementById('loading').style.display = 'none';
-        console.log('摄像头启动成功');
-    }).catch(err => {
-        console.error('摄像头启动失败:', err);
-        document.getElementById('status').textContent = '❌ 摄像头权限被拒绝';
+    document.addEventListener('mouseleave', () => {
+        isMouseMoving = false;
     });
 
     // ==================== 粒子交互 ====================
@@ -502,12 +477,12 @@
                 positions[index + 2]
             );
             
-            if (isHandDetected) {
-                const distance = current.distanceTo(handPosition);
+            if (isMouseMoving) {
+                const distance = current.distanceTo(mousePosition);
                 
                 if (distance < 4) {
                     const force = new THREE.Vector3()
-                        .subVectors(current, handPosition)
+                        .subVectors(current, mousePosition)
                         .normalize()
                         .multiplyScalar(0.4 / Math.max(distance, 0.3));
                     
@@ -515,7 +490,6 @@
                 }
             }
             
-            // 恢复力
             const restore = new THREE.Vector3()
                 .subVectors(particle.original, current)
                 .multiplyScalar(0.06);
@@ -535,6 +509,8 @@
 
     // ==================== 动画循环 ====================
     const clock = new THREE.Clock();
+    let frameCount = 0;
+    let lastTime = performance.now();
     
     function animate() {
         requestAnimationFrame(animate);
@@ -542,38 +518,44 @@
         
         updateParticles();
         
-        if (isHandDetected) {
-            handIndicator.position.copy(handPosition);
+        if (isMouseMoving) {
+            handIndicator.position.copy(mousePosition);
             handIndicator.scale.setScalar(1 + Math.sin(time * 5) * 0.2);
         }
         
-        // 装饰物动画
         decorations.forEach((dec, i) => {
             if (dec.userData.light) {
-                // 星星闪烁
                 dec.rotation.y = time * 0.5;
                 dec.userData.light.intensity = 2 + Math.sin(time * 3) * 0.5;
             } else if (dec.userData.floatOffset !== undefined) {
-                // 彩球漂浮
                 const offset = dec.userData.floatOffset;
                 dec.position.y += Math.sin(time * 2 + offset) * 0.001;
                 dec.rotation.y += 0.01;
             } else if (dec.userData.swingOffset !== undefined) {
-                // 铃铛摆动
                 const offset = dec.userData.swingOffset;
                 dec.rotation.z = Math.sin(time * 2 + offset) * 0.1;
             } else {
-                // 蝴蝶结旋转
                 dec.rotation.y = time * 0.3 + i;
             }
         });
         
-        // 树缓慢旋转
         treePoints.rotation.y = time * 0.05;
         
         renderer.render(scene, camera);
+        
+        // FPS 计算
+        frameCount++;
+        const currentTime = performance.now();
+        if (currentTime >= lastTime + 1000) {
+            document.getElementById('fps').textContent = frameCount;
+            frameCount = 0;
+            lastTime = currentTime;
+        }
     }
 
+    // ==================== 启动 ====================
+    document.getElementById('loading').style.display = 'none';
+    console.log('✅ 圣诞树加载完成');
     animate();
 
     // ==================== 响应式 ====================
@@ -582,68 +564,6 @@
         camera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
     });
-        // ==================== 错误处理和加载检测 ====================
-window.addEventListener('load', function() {
-    // 检查 Three.js 是否加载成功
-    if (typeof THREE === 'undefined') {
-        document.getElementById('loading').innerHTML = 
-            '❌ Three.js 加载失败<br>请检查网络连接或<a href="#" onclick="location.reload()" style="color:#4fc3f7">刷新页面</a>';
-        return;
-    }
-    
-    // 检查 MediaPipe 是否加载成功
-    if (typeof Hands === 'undefined') {
-        document.getElementById('loading').innerHTML = 
-            '❌ MediaPipe 加载失败<br>尝试使用备用方案...';
-        startWithoutHandTracking();
-        return;
-    }
-});
-
-// 超时检测（10秒后如果还在加载则提示）
-setTimeout(function() {
-    const loadingElement = document.getElementById('loading');
-    if (loadingElement && loadingElement.style.display !== 'none') {
-        loadingElement.innerHTML = 
-            '⚠️ 加载时间过长<br>' +
-            '可能原因：<br>' +
-            '1. 网络较慢，请稍候<br>' +
-            '2. CDN 访问受限<br>' +
-            '3. 浏览器不支持 WebGL<br>' +
-            '<button onclick="startWithoutHandTracking()" style="margin-top:10px;padding:8px 16px;background:#4fc3f7;color:white;border:none;border-radius:5px;cursor:pointer">不使用手势控制，直接查看</button>';
-    }
-}, 10000);
-
-// 不使用手势追踪的降级方案
-function startWithoutHandTracking() {
-    document.getElementById('loading').style.display = 'none';
-    document.getElementById('video').style.display = 'none';
-    document.getElementById('status').textContent = '🖱️ 鼠标模式（无手势追踪）';
-    
-    // 使用鼠标控制
-    let mouse = { x: 0, y: 0 };
-    document.addEventListener('mousemove', (e) => {
-        mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-        mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-        
-        handPosition.set(
-            mouse.x * 10,
-            mouse.y * 8 + 5,
-            5
-        );
-        isHandDetected = true;
-    });
-    
-    console.log('已切换到鼠标控制模式');
-}
-
-// 捕获所有错误
-window.addEventListener('error', function(e) {
-    console.error('全局错误:', e.message);
-    document.getElementById('loading').innerHTML = 
-        '❌ 发生错误：' + e.message + '<br>' +
-        '<button onclick="location.reload()" style="margin-top:10px;padding:8px 16px;background:#f44336;color:white;border:none;border-radius:5px;cursor:pointer">重新加载</button>';
-});
     </script>
 </body>
 </html>
