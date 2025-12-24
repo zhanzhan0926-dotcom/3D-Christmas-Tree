@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>3D 星河回忆圣诞树</title>
+    <style>
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background: radial-gradient(circle at center, #1a0b2e 0%, #000000 100%); /* 深邃宇宙背景 */
+        }
+        
+        /* UI 界面 */
+        #ui-container {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+            color: white;
+            font-family: 'Segoe UI', sans-serif;
+            pointer-events: none; /* 让鼠标事件穿透文字 */
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 24px;
+            text-shadow: 0 0 10px #bd00ff;
+            letter-spacing: 2px;
+        }
+
+        p {
+            font-size: 14px;
+            color: #aaa;
+            margin-top: 5px;
+        }
+
+        /* 上传按钮样式 */
+        #upload-btn-wrapper {
+            margin-top: 15px;
+            pointer-events: auto; /* 按钮需要点击 */
+        }
+
+        .custom-file-upload {
+            border: 1px solid #bd00ff;
+            display: inline-block;
+            padding: 8px 20px;
+            cursor: pointer;
+            border-radius: 20px;
+            background: rgba(0,0,0,0.5);
+            transition: all 0.3s;
+            font-size: 14px;
+            color: #fff;
+            box-shadow: 0 0 15px rgba(189, 0, 255, 0.3);
+        }
+
+        .custom-file-upload:hover {
+            background: #bd00ff;
+            box-shadow: 0 0 25px rgba(189, 0, 255, 0.8);
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        /* 加载提示 */
+        #loading {
+            position: absolute;
+            bottom: 20px;
+            width: 100%;
+            text-align: center;
+            color: #555;
+            font-size: 12px;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui-container">
+        <h1>🌌 Galaxy Xmas Tree</h1>
+        <p>拖动旋转 · 滚轮穿越星河</p>
+        
+        <div id="upload-btn-wrapper">
+            <label for="file-upload" class="custom-file-upload">
+                📷 上传照片 (支持多选)
+            </label>
+            <input id="file-upload" type="file" multiple accept="image/*"/>
+        </div>
+    </div>
+
+    <div id="loading">双击屏幕或滚动滚轮进入星河</div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // --- 1. 场景配置 (宇宙风格) ---
+        const scene = new THREE.Scene();
+        // 远处的雾气，让星星有渐隐效果
+        scene.fog = new THREE.FogExp2(0x000000, 0.02);
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 10, 40); // 初始远景
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        // 开启高性能颜色模式
+        document.body.appendChild(renderer.domElement);
+
+        // --- 2. 控制器 (修复了原本无法滚轮的问题) ---
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true; // 阻尼惯性
+        controls.dampingFactor = 0.05;
+        controls.autoRotate = true;    // 闲置时自动漫游
+        controls.autoRotateSpeed = 0.8; 
+        controls.enablePan = false;    // 禁止右键平移，保证树在中心
+        controls.minDistance = 0.5;    // 允许无限接近核心 (穿越效果)
+        controls.maxDistance = 60;
+
+        // --- 3. 生成星河圣诞树 (Galaxy Math) ---
+        const particleCount = 25000; // 两万五千颗星星
+        const galaxyGeo = new THREE.BufferGeometry();
+        const positions = [];
+        const colors = [];
+        const sizes = [];
+
+        // 颜色库：金色、紫色、青色、白色
+        const colorPalette = [
+            new THREE.Color('#ffcc00'), // 金
+            new THREE.Color('#ff0055'), // 紫红
+            new THREE.Color('#00ccff'), // 青
+            new THREE.Color('#ffffff')  // 白
+        ];
+
+        const treeHeight = 30;
+        const maxRadius = 12;
+
+        for (let i = 0; i < particleCount; i++) {
+            // y: 高度 (0 到 1)
+            const y = Math.random();
+            const h = y * treeHeight - treeHeight / 2;
+
+            // 螺旋星系逻辑
+            // 角度随高度旋转 (螺旋上升)
+            const spiralAngle = y * 15; // 旋转圈数
+            const branchAngle = (i % 3) * (Math.PI * 2 / 3); // 分出3个旋臂
+            const finalAngle = spiralAngle + branchAngle + Math.random() * 0.5;
+
+            // 半径：随高度变小，形成圆锥，但加入随机扩散模拟星云
+            const originalRadius = maxRadius * (1 - y);
+            // 随机扩散，制造一种"雾状"边缘
+            const randomOffset = Math.pow(Math.random(), 3) * 5; 
+            const r = originalRadius + randomOffset;
+
+            const x = Math.cos(finalAngle) * r;
+            const z = Math.sin(finalAngle) * r;
+
+            positions.push(x, h, z);
+
+            // 颜色逻辑：核心亮黄，外部紫青
+            const distToCenter = Math.sqrt(x*x + z*z) / maxRadius;
+            let color;
+            if (Math.random() > 0.95) {
+                color = colorPalette[3]; // 随机闪烁白星
+            } else if (distToCenter < 0.3) {
+                color = colorPalette[0]; // 核心金
+            } else {
+                // 外部紫/青随机
+                color = colorPalette[1].clone().lerp(colorPalette[2], Math.random());
+            }
+            colors.push(color.r, color.g, color.b);
+
+            // 大小逻辑
+            sizes.push(Math.random() * 0.3); 
+        }
+
+        galaxyGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+        galaxyGeo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+        galaxyGeo.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
+
+        // 材质：使用发光贴图 + AdditiveBlending
+        const sprite = new THREE.TextureLoader().load('https://threejs.org/examples/textures/sprites/disc.png');
+        const starMaterial = new THREE.PointsMaterial({
+            size: 0.2,
+            vertexColors: true,
+            map: sprite,
+            blending: THREE.AdditiveBlending, // 关键：叠加发光模式
+            depthWrite: false, // 允许透明叠加
+            transparent: true,
+            opacity: 0.8,
+            sizeAttenuation: true // 远小近大
+        });
+
+        const starSystem = new THREE.Points(galaxyGeo, starMaterial);
+        scene.add(starSystem);
+
+
+        // --- 4. 照片悬浮系统 (Photo Gallery) ---
+        const photoGroup = new THREE.Group();
+        scene.add(photoGroup);
+        const photoSprites = [];
+
+        // 默认占位图生成器 (Canvas)
+        function createPlaceholderTexture(text) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512; canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = 'rgba(20, 20, 50, 0.8)';
+            ctx.fillRect(0,0,512,512);
+            ctx.strokeStyle = '#00ccff';
+            ctx.lineWidth = 20;
+            ctx.strokeRect(20,20,472,472);
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 80px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText("Upload", 256, 200);
+            ctx.fillText("Photo", 256, 312);
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        // 初始化 20 个照片位
+        const defaultTex = createPlaceholderTexture("Photo");
+        const photoCount = 20;
+
+        for (let i = 0; i < photoCount; i++) {
+            const material = new THREE.SpriteMaterial({ 
+                map: defaultTex,
+                color: 0xffffff,
+                transparent: true,
+                opacity: 0.9
+            });
+            const sprite = new THREE.Sprite(material);
+
+            // 随机散落在树的内部 (螺旋分布)
+            const y = Math.random() * 0.8 + 0.1; // 避开最顶和最底
+            const h = y * treeHeight - treeHeight / 2;
+            const r = maxRadius * (1 - y) * 0.6; // 在树内部 60% 的位置
+            const angle = y * 15 + (Math.random() * Math.PI); // 跟随螺旋
+
+            sprite.position.set(
+                Math.cos(angle) * r, 
+                h, 
+                Math.sin(angle) * r
+            );
+            
+            // 初始大小
+            sprite.scale.set(3, 3, 3);
+            
+            // 存个标记，用于动画
+            sprite.userData = {
+                id: i,
+                originalY: h,
+                speed: Math.random() * 0.5 + 0.5
+            };
+
+            photoGroup.add(sprite);
+            photoSprites.push(sprite);
+        }
+
+        // --- 5. 上传功能实现 ---
+        const fileInput = document.getElementById('file-upload');
+        fileInput.addEventListener('change', (e) => {
+            const files = e.target.files;
+            if (!files.length) return;
+
+            // 遍历上传的文件并替换照片纹理
+            Array.from(files).forEach((file, index) => {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.src = event.target.result;
+                    img.onload = () => {
+                        const tex = new THREE.Texture(img);
+                        tex.needsUpdate = true;
+                        tex.colorSpace = THREE.SRGBColorSpace; // 修正颜色
+
+                        // 循环替换现有 Sprite
+                        // 如果上传图比 Sprite 多，就循环用；如果少，就只换前几个
+                        const spriteIndex = index % photoSprites.length; // 简单的分配策略
+                        
+                        // 甚至可以为新图片创建新的 Sprite，这里简单起见直接替换
+                        photoSprites.forEach((sprite, i) => {
+                            // 简单的轮询替换逻辑：每隔几张换一张，或者按顺序
+                            if (i % files.length === index) {
+                                sprite.material.map = tex;
+                            }
+                        });
+                    };
+                };
+                reader.readAsDataURL(file);
+            });
+            
+            alert(`已加载 ${files.length} 张照片，快去星河里寻找它们吧！`);
+        });
+
+
+        // --- 6. 顶部超新星 (Supernova) ---
+        const starGeo = new THREE.SphereGeometry(1, 32, 32);
+        const starMat = new THREE.MeshBasicMaterial({ color: 0xffffff }); // 纯白核心
+        const supernova = new THREE.Mesh(starGeo, starMat);
+        supernova.position.y = treeHeight / 2;
+        scene.add(supernova);
+
+        // 光晕 Sprite
+        const glowMat = new THREE.SpriteMaterial({ 
+            map: sprite, 
+            color: 0xffd700, 
+            blending: THREE.AdditiveBlending,
+            transparent: true,
+            opacity: 0.5
+        });
+        const glowSprite = new THREE.Sprite(glowMat);
+        glowSprite.scale.set(10, 10, 10);
+        supernova.add(glowSprite);
+
+
+        // --- 7. 动画循环 ---
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const time = clock.getElapsedTime();
+            
+            controls.update();
+
+            // 1. 星河旋转
+            // 停止自动旋转时（用户拖拽时），我们也可以让星星自己微动
+            starSystem.rotation.y = time * 0.05;
+
+            // 2. 顶部超新星呼吸
+            const scale = 1 + Math.sin(time * 2) * 0.1;
+            supernova.scale.set(scale, scale, scale);
+            glowSprite.material.rotation -= 0.01;
+
+            // 3. 照片漂浮效果 & 距离交互
+            const camPos = camera.position;
+            const center = new THREE.Vector3(0,0,0);
+            const dist = camPos.distanceTo(center);
+
+            // 当相机非常近时（穿越星河），让照片变大并显现
+            // 远景时照片稍微透明一点，融入背景
+            photoSprites.forEach(sprite => {
+                // 上下漂浮
+                sprite.position.y = sprite.userData.originalY + Math.sin(time + sprite.userData.id) * 0.5;
+                
+                // 永远面向相机
+                // Sprite 默认就是面向相机的，不需要 lookAt
+
+                // 距离逻辑：
+                // 离照片越近，它越大
+                const distToSprite = camPos.distanceTo(sprite.position);
+                
+                // 简单的视觉优化
+                if (distToSprite < 10) {
+                    sprite.material.opacity = 1; // 靠近高亮
+                } else {
+                    sprite.material.opacity = 0.7; // 远处半透明
+                }
+            });
+
+            // 4. 粒子材质时间更新 (如果有shader的话，这里用简单大小模拟闪烁)
+            // 略，为保性能
+
+            renderer.render(scene, camera);
+        }
+
+        // 窗口适配
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+    </script>
+</body>
+</html>
